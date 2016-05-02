@@ -159,7 +159,7 @@ def handleDateAndTime( dateString ):
 
 #____________________________________________________________
 # INPUT: time string in all formats given by website
-# OUTPUT: [TT:TT, TT:TT]  arr of two strings, first is the  strt time
+# OUTPUT: [TT:TT AM, TT:TT AM]  arr of two strings, first is the  strt time
 def formatTime( timeString ):
   # handling cases where just the start time is listed (8 a.m.)
   if 'to' not in timeString:
@@ -255,8 +255,3 @@ for month in monthsToGetEventsFrom:
                     else: #in this case we have an array and we want an entry for each date in the array
                       for entry in date:
                         writer.writerow([title,description,entry,startTime,endTime,origDateTime,source])
-
-
-
-
-
