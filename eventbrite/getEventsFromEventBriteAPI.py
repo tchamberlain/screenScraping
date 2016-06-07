@@ -42,10 +42,11 @@ def pythonDatetoEventBriteDate( pythonDate ):
   return eventBriteDate
 
 #____________________________________________________________
-#INPUT: event object from eventBrite api
-#OUTPUT: boolean - true if appropriate for teen 
-def isNotExpensive( event ):
-  priceLimit = 3000
+#INPUT: event object from eventBrite api, int -- maxCost of event
+#OUTPUT: boolean - true if not expensive
+def isNotExpensive( event, maxCost = 30 ):
+  priceLimit = maxCost * 100
+  priceLimit = 100000000000
   priceInfo = event['ticket_classes'][0]
   if 'cost' in priceInfo:
     priceValue = priceInfo['cost']['value']
@@ -60,18 +61,21 @@ def isNotExpensive( event ):
 ###############################################################
 
 #____________________________________________________________
-#INPUT: int-- approxNumEvents approx number of events wanted in csv, str -- startDate (dd/mm/yyyy), str - endDate (dd/mm/yyyy)
+#INPUT: int-- approxNumEvents approx number of events wanted in csv, str -- startDate (dd/mm/yyyy), str - endDate (dd/mm/yyyy), boolean -- freeEventsOnly
 #OUTPUT: csv file with all of our events!
-def getEventsIntoCSV( approxNumEvents, startDate, endDate ):
+def getEventsIntoCSV( startDate, endDate, freeEventsOnly = True, approxNumEvents = 1000):
   # first getting the number of pages in eventBrite's paginated response we need to get
   # there are 50 events per page
   numPages = int( approxNumEvents / 50 ) 
+  
+  # we need an extra price param if we only want free events
+  if freeEventsOnly:
+    priceParam = '&price=free'
+  else:
+    priceParam = ''
+
   for page in range( 1, numPages + 1 ):
-    # TESTING
-    # testing only free events!!
-    #requestUrl = "https://www.eventbriteapi.com/v3/events/search/?venue.city=Chicago&sort_by=best&start_date.range_start="+ startDate + "&start_date.range_end=" + endDate + "&page=" + str(page) + "&expand=ticket_classes,venue"
-    # if we want only free events
-    requestUrl = "https://www.eventbriteapi.com/v3/events/search/?venue.city=Chicago&sort_by=best&price=free&start_date.range_start="+ startDate + "&start_date.range_end=" + endDate + "&page=" + str(page) + "&expand=ticket_classes,venue,category,format"
+    requestUrl = "https://www.eventbriteapi.com/v3/events/search/?venue.city=Chicago&sort_by=best&start_date.range_start="+ startDate + "&start_date.range_end=" + endDate + "&page=" + str(page) + "&expand=ticket_classes,venue,category,format" + priceParam
     # MAKING THE API REQUEST
     response = requests.get(
         requestUrl,
@@ -86,16 +90,16 @@ def getEventsIntoCSV( approxNumEvents, startDate, endDate ):
       print '***************************************************************'
       print '---------> We got an error -- possibly requested too many events'
       print '----->API Response: ',response
+      break
     # if it does, loop thru and record them in the csv
     else: 
       events = response['events']
       for event in events:
-        #removing events related to drinking, etc.
-        # TESTING FREE EVENTS
-        #if( isAppropriateForYouth( event ) and isNotExpensive( event )):
-        if( isAppropriateForYouth( event ) ):
+        # eventmust be appropriate and free or not-expensive
+        if((freeEventsOnly or isNotExpensive( event )) and isAppropriateForYouth( event )):
           info = parseInfoIntoCSVFormat(event)
-          if info: # We return none on error
+          # Event must return valid info, we receive None on error
+          if info: 
             #write to csv
             writer.writerow(info)
 
@@ -114,7 +118,7 @@ def parseInfoIntoCSVFormat( event ):
   endDate = getDateStrFormat(dateTimeEnd)
   startTime = getTimeStrFormat(dateTimeStart)
   endTime = getTimeStrFormat(dateTimeEnd)
-  # here, made the decision to only include first day of multi-day events, so start time can be shown
+  # NOTES: here, made the decision to only include first day of multi-day events, so start time can be shown
   # for the other days, we do not know the start time
   # consequently, end time is left blank (since it refers to end time on the last day of the event)
   if(date!=endDate): # if it is a multi-day event
@@ -132,16 +136,17 @@ def parseInfoIntoCSVFormat( event ):
   source = event['url']
 
   # PRICE 
-  # priceInfo = event['ticket_classes'][0]
-  # if 'cost' in priceInfo:
-  #   free = 'false'
-  #   price = priceInfo['cost']['display']
-  #   print price
-  # else:  # if no cost info, event is free
-  #   price = '$0.00'
-  #   free = 'true'
-  price = '$0.00'
-  free = 'true'
+  priceInfo = event['ticket_classes'][0]
+  if not priceInfo['free']:
+    print '*************','name', title
+  if 'cost' in priceInfo:
+    print 'getting price?', priceInfo['cost']['display']
+    free = 'false'
+    price = priceInfo['cost']['display']
+    print price
+  else:  # if no cost info, event is free
+    price = '$0.00'
+    free = 'true'
 
   # ORIGDATETIME
   origDateTime = dateTimeStart
@@ -173,17 +178,20 @@ def parseInfoIntoCSVFormat( event ):
 ###############################################################
 
 # open our final output file
-writer = csv.writer(open('eventbriteAPIEvents.csv', 'wb'))
+writer = csv.writer(open('eventbriteEvents_limited.csv', 'wb'))
 
 # make the header line
 writer.writerow(["title","description","date","startTime","endTime","origDateTime","source","price","free","category","eventType"])
 
-arr = str(datetime.now()).split(' ')
-
+# grab date we want to get events for
+# now 
+# 2016-06-03 15:39:46.938028
 startDate = pythonDatetoEventBriteDate( datetime.now() )
-endDate = pythonDatetoEventBriteDate( datetime.now() + relativedelta(weeks=2) )
-getEventsIntoCSV(50, startDate, endDate);
+print(datetime.now())
+endDate = pythonDatetoEventBriteDate( datetime.now() + relativedelta(months=4) )
 
+# run function that will create our csv
+getEventsIntoCSV(startDate, endDate, False, 1000);
 
 
 
